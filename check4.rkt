@@ -1,13 +1,6 @@
 #lang pl
 
-#| role : we do all the assianment together |#
-
-;;-----------------------------------------------Part A------------------------------------------------------
- 
-;; ---------------------------------------------Question 1---------------------------------------------------
-
-#| This question was not difficult for us and took us an average of 2 minutes
-
+#|
 <SOL> :: = { <NumList> }
         |  { scalar-mult <num> <SOL> }
         |  { intersect <SOL> <SOL>} ;;intersect between 2 SOLS
@@ -154,7 +147,8 @@ This question was not difficult for us and took us an average of half hour.
           (if (equal? name1 name2)
               (error 'parse-sexpr "`fun' has a duplicate param name in ~s" sexpr) ;; cannot use the same param name twice
               (Fun name1 name2 (parse-sexpr body)))] ;; if name1 and name2 not equal
-         [else (error 'parse-sexpr "bad `fun' syntax in ~s" sexpr)])] ;; invalid sexpr    
+         [else (error 'parse-sexpr "bad `fun' syntax in ~s" sexpr)])] ;; invalid sexpr
+    
     [(list 'scalar-mult (number: sc) rhs) (Smult sc (parse-sexpr rhs))];;calling 'Smult' cons with sc and send rhs to 'parse-sexprS'  
     [(list 'intersect lhs rhs) (Inter (parse-sexpr lhs) (parse-sexpr rhs))];; calling 'Inter' const and send lhs,rhs to 'parse-sexprS' 
     [(list 'union lhs rhs) (Union (parse-sexpr lhs) (parse-sexpr rhs))];; calling 'Union' const and send lhs,rhs to 'parse-sexprS'
@@ -189,21 +183,15 @@ This question was not difficult for us and took us an average of half hour.
                          (Set '(4 5 6 7 8 9))))
              (Inter (Set '(1 2 3)) (Set '(2 3 4)))
              (Set '())))
+
+
 (test (parse "{with {S {intersect {1 2 3} {4 2 3}} S1 {union {1 2 3} {4 2 3}}}
                           {fun {x} S}}")
       =error> "parse-sexpr: bad `fun' syntax in (fun (x) S)") ;; functions require two formal parameters
 (test (parse "True") => (Bool true))
 (test (parse "{if {equal? {1 2 3} {1 2}} then {1 2 3} else {1 2}}") =>
       (If (Equal (Set '(1 2 3)) (Set '(1 2))) (Set '(1 2 3)) (Set '(1 2))))
-(test (parse "False") => (Bool false))
-(test (parse "{fun {x y} z y}") =error> "parse-sexpr: bad `fun' syntax in (fun (x y) z y)")
-(test (parse "{piter x y r}") =error> "parse-sexpr: bad syntax in (piter x y r)")
-(test (parse "{with {S {intersect {1 2 3} {4 2 3}}
-               S1
-               {union {1 2 3} {4 2 3}}
-               {union {1 2 3} {4 2 3}}}
-                          {fun {x y} z}}")
-      =error> "parse-sexpr: bad `with' syntax in (with (S (intersect (1 2 3) (4 2 3)) S1 (union (1 2 3) (4 2 3)) (union (1 2 3) (4 2 3))) (fun (x y) z))")
+
 (test (parse "{with {S {intersect {1 2 3} {4 2 3}} c {}}
                  {call-dynamic {fun {x y} {union x S}}
                                {if {equal? S {scalar-mult 3 S}}
@@ -218,183 +206,3 @@ This question was not difficult for us and took us an average of half hour.
                       (Set '())))
           (Inter (Set '(1 2 3)) (Set '(2 3 4)))
           (Set '())))
-
-
-;;-----------------------------------------------Part B------------------------------------------------------
- 
-;; ---------------------------------------------Question 3---------------------------------------------------
-;; Evaluation 
-#|
-
-Evaluation rules:
-    eval({ N1 N2 ... Nl })      = sort( create-set({ N1 N2 ... Nl })) ;; where create-set removes all duplications from
-                                                                         the sequence (list) and sort is a sorting procedure
-
-    eval({scalar-mult K E})     = { K*N1 K*N2 ... K*Nl }              ;; where eval(E)={ N1 N2 ... Nl }
-    eval({intersect E1 E2})     = sort( create-set(set-intersection (eval(E1) , eval(E2)))     
-    eval({union E1 E2})         = sort( create-set(set-union (eval(E1) , eval(E2)))
-    eval({fun {x1 x2} E},env)   = <{fun {x1 x2} E}, env>
-    eval({call-static E-op E1 E2},env)
-                                = eval(Ef,extend(x2,eval(E2,env) ... <-- fill in --> )
-                                                      if eval(E-op,env) = <{fun {x1 x2} Ef}, envf>
-                                = error!              otherwise
-    eval({call-dynamic E-op E1 E2},env)
-                                = <-- fill in -->
-                                                      if <-- fill in -->
-                                = error!              otherwise
-
-    eval(True,env)              = true
-    eval(False,env)             = <-- fill in -->
-    eval({if E1 then E2 else E3},env)
-                                = eval(E3, env)       if eval(E1,env) = false
-                                = <-- fill in -->     otherwise
-
-    eval({equal? E1 E2},env)    = true                if eval(E1,env) is equal in content to eval(E2,env)
-                                = false               otherwise
-
-|#
-
-;; Types for environments, values, and a lookup function
-
-(define-type ENV
-  [EmptyEnv]
-  [Extend Symbol VAL ENV])
-
-(define-type VAL
-  [SetV SET]
-  [FunV Symbol Symbol SOL ENV]
-  [BoolV <-- fill in -->]) 
-
-(: lookup : Symbol ENV -> VAL)
-(define (lookup name env)
-  (cases env
-    [(EmptyEnv) (error 'lookup "no binding for ~s" name)]
-    [(Extend id val rest-env)
-     (if (eq? id name) val (lookup name rest-env))]))
-
-
-;; Auxiliary procedures for eval 
-;; Please complete the missing parts, and add comments (comments should specify 
-;; the role of each procedure, but also describe your work process). Keep your code readable. 
-
-(: SetV->set : VAL -> SET)
-(define (SetV->set v)
-  (cases v
-    [(SetV S) S]
-    [else (error 'SetV->set "expects a set, got: ~s" v)]))
-  
-(: smult-set : Number VAL -> VAL)
-(define (smult-set n s)
-  (: mult-op : Number -> Number)
-  (define (mult-op k)
-    (* k n))
-  (<-- fill in --> (map <-- fill in -->)))
-
-
-
-(: set-op : <-- fill in --> )
-;; gets a binary SET operator, and uses it within a SetV
-;; wrapper
-(define (set-op op val1 val2)
-  (SetV (op (SetV->set val1) (SetV->set val2))))
-
-;;---------  the eval procedure ------------------------------
-;; Please complete the missing parts, and add comments (comments should specify 
-;; the choices you make, and also describe your work process). Keep your code readable. 
-(: eval : SOL ENV -> VAL)
-;; evaluates SOL expressions by reducing them to set values
-(define (eval expr env)
-  (cases expr
-    [(Set S) <-- fill in -->]
-    [(Smult n set) (smult-set <-- fill in -->)]
-    [(Inter l r) (set-op set-intersection <-- fill in -->)]
-    [(Union l r) <-- fill in -->]
-    [(Id name) (lookup name env)]
-    [(Fun bound-id1 bound-id2 bound-body)
-     (FunV bound-id1 bound-id2 bound-body env)]
-    [(CallS fun-expr arg-expr1 arg-expr2)
-     (let ([fval (eval fun-expr env)])
-       (cases fval
-         [(FunV bound-id1 bound-id2 bound-body f-env)
-          <-- fill in -->]
-         [else (error 'eval "`call-static' expects a function, got: ~s"
-                      fval)]))]
-    [(CallD fun-expr arg-expr1 arg-expr2)
-     (let ([fval (eval fun-expr env)])
-       (cases fval
-         [<-- fill in -->]
-         [else (error 'eval "`call-dynamic' expects a function, got: ~s"
-                      fval)]))]
-    [(Bool b) <-- fill in -->]
-    [(If cond true-cond false-cond)
-     (let ([cval <-- fill in -->])
-       (cases cval
-         [(BoolV b) <-- fill in -->] ;; b is a Boolean value 
-         [else <-- fill in -->]))] 
-    [(Equal l r) (if (equal? (eval l env) (eval r env)) <-- fill in -->)]))
-
- 
-
-
-(: createGlobalEnv : -> ENV)
-(define (createGlobalEnv)
-  (Extend 'second <-- fill in -->
-          (Extend <-- fill in -->
-                  (Extend <-- fill in --> 
-                          (EmptyEnv)))))
-
-(: run : String -> (U SET VAL Boolean))
-;; evaluate a SOL program contained in a string
-(define (run str)
-  (let ([result (eval (parse str) <-- fill in -->)])
-    (cases result
-      [(SetV S) <-- fill in -->]
-      [<-- fill in -->]
-      [else <-- fill in -->])))
-
-
-(test (run "{1 2 3  4 1 4  4 2 3 4 1 2 3}") => '(1 2 3 4))
-(test (run "{union {1 2 3} {4 2 3}}") => '(1 2 3 4))
-(test (run "{intersect {1 2 3} {4 2 3}}") => '( 2 3))
-(test (run "{with {S {intersect {1 2 3} {4 2 3}}
-                   S1 {}}
-                 {call-static {fun {x y} {union x S}}
-                              {scalar-mult 3 S}
-                              {4 5 7 6 9 8 8 8}}}")
-      => '(2 3 6 9))
-
-
-(test (run "{with {S {intersect {1 2 3} {4 2 3}}
-                   S1 {}}
-               {call-static {fun {x y} {union x y}}
-                              {scalar-mult 3 S}
-                              {4 5 7 6 9 8 8 8}}}")
-      => '(4 5 6 7 8 9))
-
-(test (run "{with {p {call-static cons {1 2 3} {4 2 3}}
-                    S1 {}}
-              {with {S {intersect {call-static first p {}}
-                                  {call-static second p {}}}
-                     S1 {}}
-                 {call-static {fun {x y} {union x S}}
-                              {scalar-mult 3 S}
-                              {4 5 7 6 9 8 8 8}}}}")
-      =>  '(2 3 6 9))
-(test (run "{fun {x x} x}") =error> "parse-sexpr: `fun' has a duplicate param name in (fun (x x) x)")
-
-(test (run "{with {p {call-dynamic cons {1 2 3} {4 2 3}}
-                   S1 {}}
-              {with {S {intersect {call-dynamic first p {}}
-                                  {call-dynamic second p {}}}
-                     S1 {}}
-                 {call-dynamic {fun {x y} {union x S}}
-                              {scalar-mult 3 S}
-                              {4 5 7 6 9 8 8 8}}}}")
-      =>  '(2 3 6 9))
-(test (run "{call-static {1} {2 2} {}}")
-      =error> "eval: `call-static' expects a function, got: #(struct:SetV (1))")
-(test (run "True") => #t)
-(test (run "{if {equal? {1 2 3} {1 2}} then {1 2 3} else {1 2}}") => '(1 2))
-(test (run "{equal? {union {1 2 3} {4 2 3}} {1 2 3 4}}") => #t)
-(test (run "{union {equal? {4} {4}} {4 2 3}}") =error> "SetV->set: expects a set, got: #(struct:BoolV #t)")
-

@@ -119,12 +119,6 @@
 
 
 
-
-    
-
-    
-
-
 (: parse : String -> SOL)
 ;; parses a string containing a SOL expression to a SOL AST
 (define (parse str)
