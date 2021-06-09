@@ -183,15 +183,21 @@ This question was not difficult for us and took us an average of half hour.
                          (Set '(4 5 6 7 8 9))))
              (Inter (Set '(1 2 3)) (Set '(2 3 4)))
              (Set '())))
-
-
 (test (parse "{with {S {intersect {1 2 3} {4 2 3}} S1 {union {1 2 3} {4 2 3}}}
                           {fun {x} S}}")
       =error> "parse-sexpr: bad `fun' syntax in (fun (x) S)") ;; functions require two formal parameters
 (test (parse "True") => (Bool true))
 (test (parse "{if {equal? {1 2 3} {1 2}} then {1 2 3} else {1 2}}") =>
       (If (Equal (Set '(1 2 3)) (Set '(1 2))) (Set '(1 2 3)) (Set '(1 2))))
-
+(test (parse "False") => (Bool false))
+(test (parse "{fun {x y} z y}") =error> "parse-sexpr: bad `fun' syntax in (fun (x y) z y)")
+(test (parse "{piter x y r}") =error> "parse-sexpr: bad syntax in (piter x y r)")
+(test (parse "{with {S {intersect {1 2 3} {4 2 3}}
+               S1
+               {union {1 2 3} {4 2 3}}
+               {union {1 2 3} {4 2 3}}}
+                          {fun {x y} z}}")
+      =error> "parse-sexpr: bad `with' syntax in (with (S (intersect (1 2 3) (4 2 3)) S1 (union (1 2 3) (4 2 3)) (union (1 2 3) (4 2 3))) (fun (x y) z))")
 (test (parse "{with {S {intersect {1 2 3} {4 2 3}} c {}}
                  {call-dynamic {fun {x y} {union x S}}
                                {if {equal? S {scalar-mult 3 S}}
