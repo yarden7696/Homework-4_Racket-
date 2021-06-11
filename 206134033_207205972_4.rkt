@@ -162,7 +162,7 @@ This question was not difficult for us and took us an average of half hour.
     [(list 'call-dynamic fun arg1 arg2) (CallD (parse-sexpr fun) (parse-sexpr arg1) (parse-sexpr arg2))]
     [(list 'if cond 'then true-cond 'else false-cond) (If (parse-sexpr cond) (parse-sexpr true-cond) (parse-sexpr false-cond))] 
     [(list 'equal? sol1 sol2) (Equal (parse-sexpr sol1) (parse-sexpr sol2))] 
-    [else (error 'parse-sexpr "bad syntax in ~s" sexpr)]))
+    [else (error 'parse-sexpr "parse-sexpr: bad `with' syntax in ~s" sexpr)]))
 
 
 (: parse : String -> SOL)
@@ -197,7 +197,7 @@ This question was not difficult for us and took us an average of half hour.
       (If (Equal (Set '(1 2 3)) (Set '(1 2))) (Set '(1 2 3)) (Set '(1 2))))
 (test (parse "False") => (Bool false))
 (test (parse "{fun {x y} z y}") =error> "parse-sexpr: bad `fun' syntax in (fun (x y) z y)")
-(test (parse "{piter x y r}") =error> "parse-sexpr: bad syntax in (piter x y r)")
+(test (parse "{piter x y r}") =error> "parse-sexpr: bad `with' syntax in (piter x y r)")
 (test (parse "{with {S {intersect {1 2 3} {4 2 3}}
                S1
                {union {1 2 3} {4 2 3}}
@@ -218,6 +218,7 @@ This question was not difficult for us and took us an average of half hour.
                       (Set '())))
           (Inter (Set '(1 2 3)) (Set '(2 3 4)))
           (Set '())))
+(test (parse "{with {shani and yarden} check}") =error> "parse-sexpr: bad `with' syntax in (with (shani and yarden) check")
 
 
 ;;-----------------------------------------------Part B------------------------------------------------------
@@ -271,7 +272,7 @@ Evaluation rules:
 (define-type VAL
   [SetV SET]
   [FunV Symbol Symbol SOL ENV]
-  [BoolV SOL]) ;; true/false
+  [BoolV Boolean]) ;; true/false
 
 (: lookup : Symbol ENV -> VAL)
 (define (lookup name env)
@@ -289,12 +290,14 @@ Input : VAL
 output : SET
 This function returns SET. this function checks if the VAL is SetV type, if yes- return the set S,
 else- throw an error (if we got Boolv/ Funv we throw error).
-|#
+|# 
 (: SetV->set : VAL -> SET)
 (define (SetV->set v)
   (cases v
     [(SetV S) S]
     [else (error 'SetV->set "expects a set, got: ~s" v)]))
+
+(test (SetV->set (FunV 'x 'y (Id 'x) (EmptyEnv))) =error> "SetV->set: expects a set")
 
 #|
 Input : Number VAL 
@@ -316,7 +319,7 @@ This question took us an average of 30 minutes, the dificult was how to use 'map
 
 (test (smult-set 3 (SetV '(3 4 5))) => (SetV '(9 12 15)))
 (test (smult-set -3 (SetV '(3 4 5))) => (SetV '(-9 -12 -15)))
-
+ 
 
 #|
 Input : (SET SET -> SET) VAL VAL 
@@ -348,10 +351,10 @@ This question took us an average of 45 minutes.
 ;; evaluates SOL expressions by reducing them to set values
 (define (eval expr env)
   (cases expr
-    [(Set S) (SetV S)]
-    [(Smult n set) (smult-set n set)] ;; calling 'smult-set' function with n and set
-    [(Inter l r) (set-op set-intersection eval(l env) eval(r env))] ;;set-intersection is the first argument in 'set-op' and after that we send 2 VALS 
-    [(Union l r) (set-op set-union eval(l env) eval(r env))] ;; same as Inter
+    [(Set S) (SetV (create-sorted-set S))]
+    [(Smult n set) (smult-set n (eval set env))] ;; calling 'smult-set' function with n and set
+    [(Inter l r) (set-op set-intersection (eval l env) (eval r env))] ;;set-intersection is the first argument in 'set-op' and after that we send 2 VALS 
+    [(Union l r) (set-op set-union (eval l env) (eval r env))] ;; same as Inter
     [(Id name) (lookup name env)]
     [(Fun bound-id1 bound-id2 bound-body)
      (FunV bound-id1 bound-id2 bound-body env)]
@@ -359,43 +362,63 @@ This question took us an average of 45 minutes.
      (let ([fval (eval fun-expr env)]) ;; we calculate the body of the fun('fun-expr') and save it with 'fval'
        (cases fval ;; checking the type of 'fval'
          [(FunV bound-id1 bound-id2 bound-body f-env);;if 'fval' is 'FunV' type- we do the next line
-          (eval(bound-body Extend(bound-id2 eval(arg-expr2 env) Extend(bound-id1 eval(arg-expr1 env) f-env))))]
+          (eval bound-body (Extend bound-id2 (eval arg-expr2 env) (Extend bound-id1 (eval arg-expr1 env) f-env)))]
          [else (error 'eval "`call-static' expects a function, got: ~s" ;; 'fval' is not 'FunV' type
-                      fval)]))]
+                      fval)]))] 
     [(CallD fun-expr arg-expr1 arg-expr2);; if we got CallD expression so-
      (let ([fval (eval fun-expr env)]);; we calculate the body of the fun('fun-expr') and save it with 'fval'
        (cases fval;; checking the type of 'fval'
          [(FunV bound-id1 bound-id2 bound-body f-env);;if 'fval' is 'FunV' type- we do the next line
-          (eval(bound-body Extend(bound-id2 eval(arg-expr2 env) Extend(bound-id1 eval(arg-expr1 env) env))))]
+          (eval bound-body (Extend bound-id2 (eval arg-expr2 env) (Extend bound-id1 (eval arg-expr1 env) env)))]
          [else (error 'eval "`call-dynamic' expects a function, got: ~s" ;; 'fval' is not 'FunV' type
                       fval)]))]
-    [(Bool b) (BoolV b)] ;; calling BoolV constructor
+    [(Bool b) (BoolV b) ] ;; calling BoolV constructor 
     [(If cond true-cond false-cond);; if we got If expression so-
      (let ([cval (eval cond env)]);; we calculate the 'cond' and save it with 'cval'
        (cases cval ;; checking the type of 'cval'
          [(BoolV b) (if(equal? #t b) (eval true-cond env) (eval false-cond env))] ;; b is a Boolean value 
-         [else (error 'eval "`if' expects a ????, got: ~s"
-                      cval)]))] 
+         [else (error 'eval "`if' expects a function, got: ~s"  
+                      cval)]))]  
     [(Equal l r) (if (equal? (eval l env) (eval r env)) (BoolV #t) (BoolV #f))]))
 
+;; Tests
+(test (eval (CallD (Set '(6 7)) (Set '()) (Set '())) (EmptyEnv)) =error> "`call-dynamic' expects a function, got: #(struct:SetV (6 7))")
 
 
+;; ---------------------------------------------Question 6---------------------------------------------------
 
+#|
+Input : nothing
+output : ENV
+This function returns ENV, it create a non empty global environment.
+We used Extend constructor that gets 3 parameters (symbol, VAL, ENV), so the symbol are 'second/'first/'cons
+and the VAL are FunV (id1 id2 SOL(using CallS) EmptyEnv) and finally ENV is EmptyEnv.
+This question took us an average of one hour.
+|#
 (: createGlobalEnv : -> ENV)
 (define (createGlobalEnv)
-  (Extend 'second <-- fill in -->
-          (Extend <-- fill in -->
-                  (Extend <-- fill in --> 
+  (Extend 'second (FunV 'x 'y (CallS (Id 'x) (Fun 'frst 'scnd (Id 'scnd)) (Set '())) (EmptyEnv))
+          (Extend 'first (FunV 'x 'y (CallS (Id 'x) (Fun 'frst 'scnd (Id 'frst)) (Set '())) (EmptyEnv))
+          (Extend 'cons (FunV 'x 'y (Fun 'slctr1 'slctr2 (CallS (Id 'slctr1) (Id 'x) (Id 'y))) (EmptyEnv))  
                           (EmptyEnv)))))
 
+#|
+Input : String
+output : (U SET VAL Boolean)
+This function run the entire program, we call 'eval' function with our string(str) and 
+the non empty global environment(createGlobalEnv).  
+This question took us an average of 15 minutes.
+|#
 (: run : String -> (U SET VAL Boolean))
 ;; evaluate a SOL program contained in a string
 (define (run str)
-  (let ([result (eval (parse str) <-- fill in -->)])
-    (cases result
-      [(SetV S) <-- fill in -->]
-      [<-- fill in -->]
-      [else <-- fill in -->])))
+  (let ([result (eval (parse str) (createGlobalEnv))])
+    (cases result ;; checking result's type 
+      [(SetV S) S] ;;if its SetV type we return S
+      [(BoolV b)  b ] ;;if its BoolV type we return b
+      [else result]))) ;;if its FunV type we return result
+ 
+ ;; b is SOL we wont convert him to boolean
 
 
 (test (run "{1 2 3  4 1 4  4 2 3 4 1 2 3}") => '(1 2 3 4))
@@ -442,4 +465,28 @@ This question took us an average of 45 minutes.
 (test (run "{if {equal? {1 2 3} {1 2}} then {1 2 3} else {1 2}}") => '(1 2))
 (test (run "{equal? {union {1 2 3} {4 2 3}} {1 2 3 4}}") => #t)
 (test (run "{union {equal? {4} {4}} {4 2 3}}") =error> "SetV->set: expects a set, got: #(struct:BoolV #t)")
+(test (run "x") =error> "lookup: no binding for x")
+(test (run "{if {equal? {1 2 3} {1 2 3}} then {1 2 3} else {1 2}}") => '(1 2 3))
+(test (run "{fun {x y} x}") =>(FunV 'x 'y (Id 'x)
+                                    (Extend 'second (FunV 'x 'y (CallS (Id 'x) (Fun 'frst 'scnd (Id 'scnd)) (Set '())) (EmptyEnv))
+                                            (Extend 'first (FunV 'x 'y (CallS (Id 'x) (Fun 'frst 'scnd (Id 'frst)) (Set '())) (EmptyEnv))
+                                                    (Extend 'cons (FunV 'x 'y (Fun 'slctr1 'slctr2 (CallS (Id 'slctr1) (Id 'x) (Id 'y))) (EmptyEnv))
+                                                            (EmptyEnv))))))
 
+
+
+;;-----------------------------------------------Part C------------------------------------------------------
+
+#|
+1. What are the types that we have now (after you are done) in the SOL language?
+   Answer- the types we have are: (SET), (Symbol Symbol SOL ENV), (Boolean) 
+
+2. Explain where in the solution of section 2 (when parsing with expressions)
+   you called a function dynamically/statically – what was the importance of your choices?
+   Answer- 
+
+
+
+
+
+|#
