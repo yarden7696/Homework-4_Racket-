@@ -225,6 +225,7 @@ This question was not difficult for us and took us an average of half hour.
 ;; ---------------------------------------------Question 3---------------------------------------------------
 ;; Evaluation 
 #|
+This question took us an average of 2 hours, the dificult was to understand the second extend of callD/S
 
 Evaluation rules:
     eval({ N1 N2 ... Nl })      = sort( create-set({ N1 N2 ... Nl })) ;; where create-set removes all duplications from
@@ -234,36 +235,43 @@ Evaluation rules:
     eval({intersect E1 E2})     = sort( create-set(set-intersection (eval(E1) , eval(E2)))     
     eval({union E1 E2})         = sort( create-set(set-union (eval(E1) , eval(E2)))
     eval({fun {x1 x2} E},env)   = <{fun {x1 x2} E}, env>
-    eval({call-static E-op E1 E2},env)
-                                = eval(Ef,extend(x2,eval(E2,env) ... <-- fill in --> )
+
+;; we send Ef(body fun) to eval. extend gets 3 parameters (id,VAL,ENV) and id=x2, VAL=eval(E2,env),ENV=extend(x1,eval(E1,env),envf)  
+    eval({call-static E-op E1 E2},env)                                                             ;; ENV has constructor 'extend'
+                                = eval(Ef,extend(x2,eval(E2,env),extend(x1,eval(E1,env),envf)))
                                                       if eval(E-op,env) = <{fun {x1 x2} Ef}, envf>
                                 = error!              otherwise
+
+;; we send Ef(body fun) to eval. extend gets 3 parameters (id,VAL,ENV) and id=x2, VAL=eval(E2,env),ENV=extend(x1,eval(E1,env),env) 
     eval({call-dynamic E-op E1 E2},env)
-                                = <-- fill in -->
-                                                      if <-- fill in -->
+                                = eval(Ef,extend(x2,eval(E2,env),extend(x1,eval(E1,env),env)))
+                                                      if eval(E-op,env) = <{fun {x1 x2} Ef}, envf> ;; 
                                 = error!              otherwise
 
     eval(True,env)              = true
-    eval(False,env)             = <-- fill in -->
+    eval(False,env)             = false
     eval({if E1 then E2 else E3},env)
                                 = eval(E3, env)       if eval(E1,env) = false
-                                = <-- fill in -->     otherwise
+                                = eval(E2, env)     otherwise ;; otherwise- E1=true then eval(E2, env)
 
     eval({equal? E1 E2},env)    = true                if eval(E1,env) is equal in content to eval(E2,env)
                                 = false               otherwise
 
 |#
 
+
+;; ---------------------------------------------Question 4---------------------------------------------------
+
 ;; Types for environments, values, and a lookup function
 
 (define-type ENV
   [EmptyEnv]
-  [Extend Symbol VAL ENV])
+  [Extend Symbol VAL ENV]) ;; extend the environment with id,value,env
 
 (define-type VAL
   [SetV SET]
   [FunV Symbol Symbol SOL ENV]
-  [BoolV <-- fill in -->]) 
+  [BoolV SOL]) ;; true/false
 
 (: lookup : Symbol ENV -> VAL)
 (define (lookup name env)
@@ -274,66 +282,103 @@ Evaluation rules:
 
 
 ;; Auxiliary procedures for eval 
-;; Please complete the missing parts, and add comments (comments should specify 
-;; the role of each procedure, but also describe your work process). Keep your code readable. 
 
+
+#|
+Input : VAL 
+output : SET
+This function returns SET. this function checks if the VAL is SetV type, if yes- return the set S,
+else- throw an error (if we got Boolv/ Funv we throw error).
+|#
 (: SetV->set : VAL -> SET)
 (define (SetV->set v)
   (cases v
     [(SetV S) S]
     [else (error 'SetV->set "expects a set, got: ~s" v)]))
-  
+
+#|
+Input : Number VAL 
+output : VAL
+This function returns VAL. this function multiplies the entire SET (s) by the number (n) it received.
+The 'mult-op' function performs a multiply of two numbers, we call map function that operate the 'mult-op'
+function on every element in the set.
+s originally in type VAL and we convert it to SET using 'SetV->set' function.
+At the end we convert our result 'afterMul' to type VAL (SetV constructor) caz 'smult-set' return VAL   
+This question took us an average of 30 minutes, the dificult was how to use 'map' function. 
+|#
 (: smult-set : Number VAL -> VAL)
 (define (smult-set n s)
   (: mult-op : Number -> Number)
   (define (mult-op k)
     (* k n))
-  (<-- fill in --> (map <-- fill in -->)))
+  (let([afterMul (map mult-op (SetV->set s))])
+   (SetV afterMul)))
+
+(test (smult-set 3 (SetV '(3 4 5))) => (SetV '(9 12 15)))
+(test (smult-set -3 (SetV '(3 4 5))) => (SetV '(-9 -12 -15)))
 
 
-
-(: set-op : <-- fill in --> )
+#|
+Input : (SET SET -> SET) VAL VAL 
+output : VAL
+This function returns VAL. this function gets binary SET operator(union/intersection) so the input
+of this binary operator should be this caz its work on 2 SETS.
+This question took us an average of 5 minutes.
+|#
+(: set-op : (SET SET -> SET) VAL VAL -> VAL)
 ;; gets a binary SET operator, and uses it within a SetV
 ;; wrapper
 (define (set-op op val1 val2)
   (SetV (op (SetV->set val1) (SetV->set val2))))
 
+
+
+;; ---------------------------------------------Question 5---------------------------------------------------
+
 ;;---------  the eval procedure ------------------------------
-;; Please complete the missing parts, and add comments (comments should specify 
-;; the choices you make, and also describe your work process). Keep your code readable. 
+
+#|
+Input : SOL ENV
+output : VAL
+This function returns VAL. it calculates the SOL according to the constructor
+(an explanation of each possible constructor pattern is written in the code).
+This question took us an average of 45 minutes.
+|#
 (: eval : SOL ENV -> VAL)
 ;; evaluates SOL expressions by reducing them to set values
 (define (eval expr env)
   (cases expr
-    [(Set S) <-- fill in -->]
-    [(Smult n set) (smult-set <-- fill in -->)]
-    [(Inter l r) (set-op set-intersection <-- fill in -->)]
-    [(Union l r) <-- fill in -->]
+    [(Set S) (SetV S)]
+    [(Smult n set) (smult-set n set)] ;; calling 'smult-set' function with n and set
+    [(Inter l r) (set-op set-intersection eval(l env) eval(r env))] ;;set-intersection is the first argument in 'set-op' and after that we send 2 VALS 
+    [(Union l r) (set-op set-union eval(l env) eval(r env))] ;; same as Inter
     [(Id name) (lookup name env)]
     [(Fun bound-id1 bound-id2 bound-body)
      (FunV bound-id1 bound-id2 bound-body env)]
-    [(CallS fun-expr arg-expr1 arg-expr2)
-     (let ([fval (eval fun-expr env)])
-       (cases fval
-         [(FunV bound-id1 bound-id2 bound-body f-env)
-          <-- fill in -->]
-         [else (error 'eval "`call-static' expects a function, got: ~s"
+    [(CallS fun-expr arg-expr1 arg-expr2) ;; if we got CallS expression so-
+     (let ([fval (eval fun-expr env)]) ;; we calculate the body of the fun('fun-expr') and save it with 'fval'
+       (cases fval ;; checking the type of 'fval'
+         [(FunV bound-id1 bound-id2 bound-body f-env);;if 'fval' is 'FunV' type- we do the next line
+          (eval(bound-body Extend(bound-id2 eval(arg-expr2 env) Extend(bound-id1 eval(arg-expr1 env) f-env))))]
+         [else (error 'eval "`call-static' expects a function, got: ~s" ;; 'fval' is not 'FunV' type
                       fval)]))]
-    [(CallD fun-expr arg-expr1 arg-expr2)
-     (let ([fval (eval fun-expr env)])
-       (cases fval
-         [<-- fill in -->]
-         [else (error 'eval "`call-dynamic' expects a function, got: ~s"
+    [(CallD fun-expr arg-expr1 arg-expr2);; if we got CallD expression so-
+     (let ([fval (eval fun-expr env)]);; we calculate the body of the fun('fun-expr') and save it with 'fval'
+       (cases fval;; checking the type of 'fval'
+         [(FunV bound-id1 bound-id2 bound-body f-env);;if 'fval' is 'FunV' type- we do the next line
+          (eval(bound-body Extend(bound-id2 eval(arg-expr2 env) Extend(bound-id1 eval(arg-expr1 env) env))))]
+         [else (error 'eval "`call-dynamic' expects a function, got: ~s" ;; 'fval' is not 'FunV' type
                       fval)]))]
-    [(Bool b) <-- fill in -->]
-    [(If cond true-cond false-cond)
-     (let ([cval <-- fill in -->])
-       (cases cval
-         [(BoolV b) <-- fill in -->] ;; b is a Boolean value 
-         [else <-- fill in -->]))] 
-    [(Equal l r) (if (equal? (eval l env) (eval r env)) <-- fill in -->)]))
+    [(Bool b) (BoolV b)] ;; calling BoolV constructor
+    [(If cond true-cond false-cond);; if we got If expression so-
+     (let ([cval (eval cond env)]);; we calculate the 'cond' and save it with 'cval'
+       (cases cval ;; checking the type of 'cval'
+         [(BoolV b) (if(equal? #t b) (eval true-cond env) (eval false-cond env))] ;; b is a Boolean value 
+         [else (error 'eval "`if' expects a ????, got: ~s"
+                      cval)]))] 
+    [(Equal l r) (if (equal? (eval l env) (eval r env)) (BoolV #t) (BoolV #f))]))
 
- 
+
 
 
 (: createGlobalEnv : -> ENV)

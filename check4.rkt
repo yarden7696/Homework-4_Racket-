@@ -212,3 +212,103 @@ This question was not difficult for us and took us an average of half hour.
                       (Set '())))
           (Inter (Set '(1 2 3)) (Set '(2 3 4)))
           (Set '())))
+
+
+
+;;-----------------------------------------------Part B------------------------------------------------------
+ 
+;; ---------------------------------------------Question 3---------------------------------------------------
+;; Evaluation 
+#|
+This question took us an average of 2 hours, the dificult was to understand the second extend of callD/S
+
+Evaluation rules:
+    eval({ N1 N2 ... Nl })      = sort( create-set({ N1 N2 ... Nl })) ;; where create-set removes all duplications from
+                                                                         the sequence (list) and sort is a sorting procedure
+
+    eval({scalar-mult K E})     = { K*N1 K*N2 ... K*Nl }              ;; where eval(E)={ N1 N2 ... Nl }
+    eval({intersect E1 E2})     = sort( create-set(set-intersection (eval(E1) , eval(E2)))     
+    eval({union E1 E2})         = sort( create-set(set-union (eval(E1) , eval(E2)))
+    eval({fun {x1 x2} E},env)   = <{fun {x1 x2} E}, env>
+
+;; we send Ef(body fun) to eval. extend gets 3 parameters (id,VAL,ENV) and id=x2, VAL=eval(E2,env),ENV=extend(x1,eval(E1,env),envf)  
+    eval({call-static E-op E1 E2},env)                                                             ;; ENV has constructor 'extend'
+                                = eval(Ef,extend(x2,eval(E2,env),extend(x1,eval(E1,env),envf)))
+                                                      if eval(E-op,env) = <{fun {x1 x2} Ef}, envf>
+                                = error!              otherwise
+
+;; we send Ef(body fun) to eval. extend gets 3 parameters (id,VAL,ENV) and id=x2, VAL=eval(E2,env),ENV=extend(x1,eval(E1,env),env) 
+    eval({call-dynamic E-op E1 E2},env)
+                                = eval(Ef,extend(x2,eval(E2,env),extend(x1,eval(E1,env),env)))
+                                                      if eval(E-op,env) = <{fun {x1 x2} Ef}> ;; fun is not closer
+                                = error!              otherwise
+
+    eval(True,env)              = true
+    eval(False,env)             = false
+    eval({if E1 then E2 else E3},env)
+                                = eval(E3, env)       if eval(E1,env) = false
+                                = eval(E2, env)     otherwise ;; otherwise- E1=true then eval(E2, env)
+
+    eval({equal? E1 E2},env)    = true                if eval(E1,env) is equal in content to eval(E2,env)
+                                = false               otherwise
+
+|#
+
+
+;; ---------------------------------------------Question 4---------------------------------------------------
+
+;; Types for environments, values, and a lookup function
+
+(define-type ENV
+  [EmptyEnv]
+  [Extend Symbol VAL ENV]) ;; extend the environment with id,value,env
+
+(define-type VAL
+  [SetV SET]
+  [FunV Symbol Symbol SOL ENV]
+  [BoolV SOL]) ;; true/false
+
+(: lookup : Symbol ENV -> VAL)
+(define (lookup name env)
+  (cases env
+    [(EmptyEnv) (error 'lookup "no binding for ~s" name)]
+    [(Extend id val rest-env)
+     (if (eq? id name) val (lookup name rest-env))]))
+
+
+;; Auxiliary procedures for eval 
+
+
+#|
+Input : VAL 
+output : SET
+This function returns SET. this function checks if the VAL is SetV type, if yes- return the set S,
+else- throw an error (if we got Boolv/ Funv we throw error).
+|#
+(: SetV->set : VAL -> SET)
+(define (SetV->set v)
+  (cases v
+    [(SetV S) S]
+    [else (error 'SetV->set "expects a set, got: ~s" v)]))
+
+#|
+Input : Number VAL 
+output : VAL
+This function returns VAL. this function multiplies the entire SET (s) by the number (n) it received.
+The 'mult-op' function performs a multiply of two numbers, we call map function that operate the 'mult-op'
+function on every element in the set.
+s originally in type VAL and we convert it to SET using 'SetV->set' function.
+At the end we convert our result 'afterMul' to type VAL (SetV constructor) caz 'smult-set' return VAL   
+This question took us an average of 30 minutes, the dificult was how to use 'map' function. 
+|#
+(: smult-set : Number VAL -> VAL)
+(define (smult-set n s)
+  (: mult-op : Number -> Number)
+  (define (mult-op k)
+    (* k n))
+  (let([afterMul (map mult-op (SetV->set s))])
+   (SetV afterMul)))
+
+(test (smult-set 3 (SetV '(3 4 5))) => (SetV '(9 12 15)))
+(test (smult-set -3 (SetV '(3 4 5))) => (SetV '(-9 -12 -15)))
+
