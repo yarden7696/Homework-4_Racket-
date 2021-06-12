@@ -483,6 +483,28 @@ This question took us an average of 15 minutes.
 
 2. Explain where in the solution of section 2 (when parsing with expressions)
    you called a function dynamically/statically – what was the importance of your choices?
+   Answer-**********************************************************************************************
+
+3. Explain where in the solution of section 6 you used call-dynamic and
+   where you used call-static – what was the importance of your choices?
+   Answer- we used call-static in 'cons, 'first and 'second.
+   The call for 'cons can be call-dynamic/call-static caz its will be called on first or second which is
+   in the same clousure that they override.
+   The call for 'first and 'second must be call-static caz if we used call-dynamic it was running in the
+   global environment and was not recognized the id's hence we would get an exception(caz the 'first/'second
+   will be called when the clouser will be finished.
+
+4. Would there be any difference if we used call-dynamic in some places in
+   the following test? Explain your answer.
+(test (run "{with {p {call-static cons {1 2 3} {4 2 3}}
+       S1 {}}
+     {with {S {intersect {call-static first p {}}
+                         {call-static second p {}}}
+            S1 {}}
+       {call-static {fun {x y} {union x S}}
+                    {scalar-mult 3 S}
+                    {4 5 7 6 9 8 8 8}}}}")
+   => '(2 3 6 9)
    Answer- 
 
 
