@@ -69,7 +69,7 @@
 (test (ismember? 1 '(3 4 5 1 3 4)))
 (test (ismember? 1 '(1)))
 
-
+ 
 
 (: remove-duplicates : SET  -> SET)
 (define (remove-duplicates l)
@@ -478,12 +478,16 @@ This question took us an average of 15 minutes.
 ;;-----------------------------------------------Part C------------------------------------------------------
 
 #|
+This question took us an average of one hour.
+
 1. What are the types that we have now (after you are done) in the SOL language?
    Answer- the types we have are: (SET), (Symbol Symbol SOL ENV), (Boolean) 
 
 2. Explain where in the solution of section 2 (when parsing with expressions)
    you called a function dynamically/statically – what was the importance of your choices?
-   Answer-**********************************************************************************************
+   Answer- 1)we saw at the test we got that 'with switched to CallS.
+           2)with is syntax sugar for callS/lambda by definition and all variables recieved
+             their values on definition and not on run time.
 
 3. Explain where in the solution of section 6 you used call-dynamic and
    where you used call-static – what was the importance of your choices?
@@ -505,10 +509,9 @@ This question took us an average of 15 minutes.
                     {scalar-mult 3 S}
                     {4 5 7 6 9 8 8 8}}}}")
    => '(2 3 6 9)
-   Answer- 
-
-
-
-
+   Answer- if we will change the call-static to call-dynamic in cons nothing will be changed and its ok.
+           but if we will change '{call-static {fun {x y} {union x S}}' to
+           '{call-dynamic {fun {x y} {union x S}}' we will get an error caz its used the global environment
+           and its out of closure.
 
 |#
